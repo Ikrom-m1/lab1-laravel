@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\DTO\RegisterDTO;
 
 class RegisterRequest extends FormRequest
 {
@@ -11,7 +12,7 @@ class RegisterRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true; // Разрешаем выполнение запроса для всех пользователей
     }
 
     /**
@@ -22,7 +23,23 @@ class RegisterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'name' => 'required|string|max:255',       // Имя должно быть строкой и не больше 255 символов
+            'email' => 'required|email|unique:users,email', // Электронная почта должна быть уникальной
+            'password' => 'required|string|min:6',     // Пароль должен быть не менее 6 символов
         ];
+    }
+
+    /**
+     * Преобразует запрос в DTO.
+     *
+     * @return \App\DTO\RegisterDTO
+     */
+    public function toDTO(): RegisterDTO
+    {
+        return new RegisterDTO(
+            $this->name,
+            $this->email,
+            $this->password
+        );
     }
 }
