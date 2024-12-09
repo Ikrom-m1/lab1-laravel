@@ -1,11 +1,15 @@
 <?php
 
-use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
 
-Route::post('auth/login', [AuthController::class, 'login']);
+// Регистрация
 Route::post('auth/register', [AuthController::class, 'register']);
-Route::get('auth/me', [AuthController::class, 'me'])->middleware('auth:api');
-Route::post('auth/out', [AuthController::class, 'logout'])->middleware('auth:api');
-Route::get('auth/tokens', [AuthController::class, 'tokens'])->middleware('auth:api');
-Route::post('auth/out_all', [AuthController::class, 'logoutAll'])->middleware('auth:api');
+// Авторизация
+Route::post('auth/login', [AuthController::class, 'login']);
+Route::prefix('auth:sanctum')->group(function() {
+Route::get('/user', [AuthController::class, 'user']);
+Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('tokens', [AuthController::class, 'tokens'])->middleware('auth:api');
+Route::post('out_all', [AuthController::class, 'logoutAll'])->middleware('auth:api');
+});

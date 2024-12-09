@@ -1,36 +1,50 @@
 <?php
-// app/Http/Controllers/AuthController.php
 
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
-use App\Http\Resources\AuthResource;
-use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
     // Регистрация
     public function register(RegisterRequest $request)
     {
-        $user = User::create([
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'birthday' => $request->birthday,
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|regex:/[0-9]/|regex:/[A-Za-z]/',
+            'birthday' => 'required|date|before:today',
         ]);
 
-        return new AuthResource($user);
+        $user = User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+            'birthday' => $validated['birthday'],
+        ]);
+
+        return response()->json([
+            'message' => 'Registration successful',
+            'user' => $user,
+        ], 201);
     }
 
     // Авторизация
     public function login(LoginRequest $request)
     {
-        if (Auth::attempt(['username' => $request->username, 'password' => $request->password])) {
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            Log::info("Invalid credentials");
+        }
+
+        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
             $user = Auth::user();
             $token = $user->createToken('API Token')->plainTextToken;
 
@@ -43,7 +57,9 @@ class AuthController extends Controller
     // Получение информации о пользователе
     public function me()
     {
-        return new UserResource(Auth::user());
+        return response()->json([
+            'user' => auth()->user(),
+        ]);
     }
 
     // Разлогирование
@@ -71,22 +87,23 @@ class AuthController extends Controller
 
         return response()->json(['message' => 'All tokens have been revoked']);
     }
+
+    // Смена пароля
     public function changePassword(Request $request)
-{
-    $request->validate([
-        'current_password' => 'required',
-        'new_password' => 'required|min:8|confirmed',
-    ]);
+    {
+        $request->validate([
+            'current_password' => 'required',
+            'new_password' => 'required|min:8|confirmed',
+        ]);
 
-    $user = Auth::user();
-    if (!Hash::check($request->current_password, $user->password)) {
-        return response()->json(['error' => 'Current password is incorrect'], 400);
+        $user = Auth::user();
+        if (!Hash::check($request->current_password, $user->password)) {
+            return response()->json(['error' => 'Current password is incorrect'], 400);
+        }
+
+        $user->password = Hash::make($request->new_password);
+        $user->save();
+
+        return response()->json(['message' => 'Password updated successfully']);
     }
-
-    $user->password = Hash::make($request->new_password);
-    $user->save();
-
-    return response()->json(['message' => 'Password updated successfully']);
-}
-
 }
