@@ -7,9 +7,9 @@ use App\Http\Controllers\AuthController;
 Route::post('auth/register', [AuthController::class, 'register']);
 // Авторизация
 Route::post('auth/login', [AuthController::class, 'login']);
-Route::prefix('auth:sanctum')->group(function() {
-Route::get('/user', [AuthController::class, 'user']);
-Route::post('/logout', [AuthController::class, 'logout']);
-Route::get('tokens', [AuthController::class, 'tokens'])->middleware('auth:api');
-Route::post('out_all', [AuthController::class, 'logoutAll'])->middleware('auth:api');
+Route::prefix('auth')->group(function() {
+     Route::get('user', [AuthController::class, 'me'])->middleware('auth:sanctum');
+     Route::post('logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
+     Route::get('tokens', [AuthController::class, 'tokens'])->middleware('auth:sanctum');
+     Route::post('out_all', [AuthController::class, 'logoutAll'])->middleware('auth:api');
 });

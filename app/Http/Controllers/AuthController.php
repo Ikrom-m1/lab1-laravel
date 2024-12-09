@@ -14,45 +14,65 @@ class AuthController extends Controller
 {
     // Регистрация
     public function register(RegisterRequest $request)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|regex:/[0-9]/|regex:/[A-Za-z]/',
-            'birthday' => 'required|date|before:today',
-        ]);
+{
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'email' => 'required|string|email|max:255|unique:users',
+        'password' => 'required|string|min:8|regex:/[0-9]/|regex:/[A-Za-z]/',
+        'birthday' => 'required|date|before:today',
+    ]);
 
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'birthday' => $validated['birthday'],
-        ]);
+    $user = User::create([
+        'name' => $validated['name'],
+        'email' => $validated['email'],
+        'password' => Hash::make($validated['password']),
+        'birthday' => $validated['birthday'],
+    ]);
 
-        return response()->json([
-            'message' => 'Registration successful',
-            'user' => $user,
-        ], 201);
-    }
+    // Создание токена с конкретными правами
+    $token = $user->createToken('API Token', [
+        'view-profile', 
+        'update-profile', 
+        'logout', 
+        'change-password'
+    ])->plainTextToken;
+
+    return response()->json([
+        'message' => 'Registration successful',
+        'user' => $user,
+        'token' => $token
+    ], 201);
+}
+
 
     // Авторизация
-    public function login(LoginRequest $request)
-    {
-        $user = User::where('email', $request->email)->first();
+    // Авторизация
+public function login(LoginRequest $request)
+{
+    $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            Log::info("Invalid credentials");
-        }
-
-        if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
-            $user = Auth::user();
-            $token = $user->createToken('API Token')->plainTextToken;
-
-            return response()->json(['token' => $token]);
-        }
-
-        return response()->json(['error' => 'Unauthorized'], 401);
+    if (!$user || !Hash::check($request->password, $user->password)) {
+        return response()->json(['error' => 'Invalid credentials'], 401);
     }
+
+    if (Auth::attempt(['email' => $request->email, 'password' => $request->password])) {
+        $user = Auth::user();
+
+        // Указываем конкретные права доступа
+        $abilities = ['view-profile', 'update-profile', 'logout', 'change-password'];
+
+        // Создаем токен с правами
+        $token = $user->createToken('API Token', $abilities)->plainTextToken;
+
+        return response()->json([
+            'token' => $token,
+            'abilities' => $abilities
+        ]);
+    }
+
+    return response()->json(['error' => 'Unauthorized'], 401);
+}
+
 
     // Получение информации о пользователе
     public function me()
@@ -73,10 +93,25 @@ class AuthController extends Controller
     }
 
     // Получение токенов пользователя
-    public function tokens()
-    {
-        return response()->json(Auth::user()->tokens);
-    }
+
+public function tokens()
+{
+    $tokens = Auth::user()->tokens->map(function ($token) {
+        return [
+            'id' => $token->id,
+            'name' => $token->name,
+            'abilities' => $token->abilities, // Показ прав токена
+            'token' => $token->token,
+            'last_used_at' => $token->last_used_at,
+            'expires_at' => $token->expires_at,
+            'created_at' => $token->created_at,
+            'updated_at' => $token->updated_at,
+        ];
+    });
+
+    return response()->json($tokens);
+}
+
 
     // Разлогирование всех токенов
     public function logoutAll()
